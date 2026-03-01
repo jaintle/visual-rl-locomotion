@@ -1,0 +1,92 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Keep CI fast: smoke tests only, no full training.
+# Target runtime: < 5 minutes on ubuntu-latest.
+
+jobs:
+  test:
+    name: Smoke tests & style
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      # ------------------------------------------------------------------ #
+      # 1. Checkout                                                          #
+      # ------------------------------------------------------------------ #
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ------------------------------------------------------------------ #
+      # 2. Python setup                                                      #
+      # ------------------------------------------------------------------ #
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      # ------------------------------------------------------------------ #
+      # 3. System dependencies for MuJoCo                                   #
+      # ------------------------------------------------------------------ #
+      - name: Install system dependencies (MuJoCo / OpenGL)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            libgl1-mesa-glx \
+            libgles2-mesa-dev \
+            libosmesa6-dev \
+            patchelf \
+            ffmpeg
+
+      # ------------------------------------------------------------------ #
+      # 4. Python dependencies                                               #
+      # ------------------------------------------------------------------ #
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -e .
+
+      # ------------------------------------------------------------------ #
+      # 5. Verify imports (fast — no env creation)                          #
+      # ------------------------------------------------------------------ #
+      - name: Verify package imports
+        run: |
+          python -c "
+          from visual_rl_locomotion.envs.make_env import make_env
+          from visual_rl_locomotion.models.mlp_policy import MLPPolicy, MLPValueNet
+          from visual_rl_locomotion.models.cnn_encoder import CNNEncoder
+          from visual_rl_locomotion.models.vision_policy import VisionPolicy, VisionValueNet, VisionPPOAgent
+          from visual_rl_locomotion.algo.ppo import PPOAgent, compute_gae
+          from visual_rl_locomotion.utils.seed import set_seed
+          from visual_rl_locomotion.utils.logger import CSVLogger
+          from visual_rl_locomotion.utils.config import save_config, args_to_dict
+          print('All imports OK')
+          "
+
+      # ------------------------------------------------------------------ #
+      # 6. Run pytest (smoke + determinism; slow tests skipped)             #
+      # ------------------------------------------------------------------ #
+      - name: Run tests
+        env:
+          MUJOCO_GL: osmesa
+          PYOPENGL_PLATFORM: osmesa
+        run: |
+          pytest tests/ -v -m "not slow" --tb=short
+
+      # ------------------------------------------------------------------ #
+      # 7. Verify script entry points parse without error                   #
+      # ------------------------------------------------------------------ #
+      - name: Verify script help outputs
+        run: |
+          python scripts/smoke_env.py --help
+          python scripts/train_ppo.py --help
+          python scripts/run_compare.py --help
+          python scripts/plot_results.py --help
+          python scripts/aggregate_results.py --help

@@ -60,6 +60,67 @@ None.
 
 ---
 
+## Entry 002 — Phase 5 Research-Artifact Upgrade
+
+**Date:** 2026-03-01
+**Environment:** Hopper-v4 (Gymnasium + MuJoCo)
+**Obs modes:** state, pixels
+**Img size:** 64 × 64 (pixels mode only)
+**Seed(s):** 0, 1, 2
+**Timesteps:** 20 000 (reproduce_hopper_v4_20k.sh benchmark)
+**Eval every:** 2 000 steps
+**n_steps:** 2048 | **batch_size:** 64 | **epochs:** 10
+**Device:** cpu
+
+### Purpose
+
+Structural upgrade of the repository to research-artifact tier.
+No algorithm changes. Changes include:
+
+- Full README rewrite with research framing, protocol tables, and
+  reproducibility narrative.
+- `scripts/aggregate_results.py`: multi-seed aggregation with markdown table
+  output and overlay plot generation.
+- `scripts/reproduce_hopper_v4_20k.sh`: end-to-end reproduction script for
+  the 20k-step benchmark (3 seeds, 5 eval episodes, both modes).
+- `tests/test_smoke.py` and `tests/test_determinism.py`: pytest suite covering
+  env construction, model shapes, GAE correctness, and seed reproducibility.
+- `.github/workflows/ci.yml`: CI workflow (imports + smoke tests, < 5 min).
+- `reports/results_hopper_v4.md`: structured results document (template;
+  populated by running the reproduce script).
+- `reports/experiment_log.md`: updated with this entry.
+- `pyproject.toml`: added `slow` pytest marker.
+
+### Observations
+
+- Training stability: infrastructure validated via smoke run.
+- Sample efficiency differences: not yet quantified at 20k scale.
+- Representation bottlenecks: not yet quantified.
+- Variance across seeds: requires the 20k reproduce run to assess.
+
+### Quantitative
+
+- Initial eval return: ~10–30 (random policy; smoke runs confirmed).
+- Final eval return (20k): pending — run `bash scripts/reproduce_hopper_v4_20k.sh`.
+- Mean ± std: pending.
+
+### Bugs encountered
+
+None in Phase 5 structural changes.
+
+### Fixes applied
+
+Added `slow` marker to `pyproject.toml` to suppress pytest marker warning.
+
+### Limitations
+
+- 20k benchmark is insufficient for convergence; serves as infrastructure
+  validation and an honest lower-bound comparison.
+- No pixel-mode hyperparameter tuning.
+- CI does not run full training (MuJoCo + training would exceed 5 min budget).
+
+---
+
 ## Template (copy for new entries)
 
 **Date:**

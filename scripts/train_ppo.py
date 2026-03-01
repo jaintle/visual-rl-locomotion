@@ -1,30 +1,29 @@
 """
-PPO training script for visual-rl-locomotion — Phase 2 (state observations).
+PPO training script for visual-rl-locomotion — Phase 3 (state + pixel observations).
 
-Usage (smoke run):
-    python scripts/train_ppo.py \
-        --env_id Hopper-v4 \
-        --obs_mode state \
-        --total_timesteps 2000 \
-        --eval_every 1000 \
-        --seed 0 \
-        --save_dir runs/smoke_state \
-        --device cpu \
-        --n_steps 256 \
-        --batch_size 64 \
-        --epochs 2
+Usage:
+    # State mode
+    python scripts/train_ppo.py \\
+        --env_id Hopper-v4 --obs_mode state \\
+        --total_timesteps 2000 --eval_every 1000 --seed 0 \\
+        --save_dir runs/smoke_state --device cpu \\
+        --n_steps 256 --batch_size 64 --epochs 2
+
+    # Pixel mode
+    python scripts/train_ppo.py \\
+        --env_id Hopper-v4 --obs_mode pixels --img_size 64 \\
+        --total_timesteps 2000 --eval_every 1000 --seed 0 \\
+        --save_dir runs/smoke_pixels --device cpu \\
+        --n_steps 256 --batch_size 64 --epochs 2
 
 Produces under save_dir/:
     config.json            — full hyperparameter record
     metrics.csv            — one row per update cycle + one per eval
     checkpoints/           — .pt files at each eval boundary
-
-Phase 2 restriction: --obs_mode pixels is not yet supported for training.
 """
 
 import argparse
 import os
-import sys
 
 import numpy as np
 import torch
@@ -44,7 +43,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--seed",             type=int,   default=0)
     parser.add_argument("--obs_mode",         type=str,   default="state",
                         choices=["state", "pixels"],
-                        help="Observation mode. Only 'state' is supported in Phase 2.")
+                        help="Observation mode: 'state' (MLP policy) or 'pixels' (CNN policy).")
     parser.add_argument("--img_size",         type=int,   default=64,
                         help="Pixel frame size (ignored in state mode).")
 
@@ -82,10 +81,14 @@ def parse_args() -> argparse.Namespace:
 def evaluate(agent, env_id: str, seed: int, obs_mode: str, img_size: int,
              n_episodes: int, device: torch.device) -> list:
     """
-    Run n_episodes deterministic episodes and return the list of returns.
+    Run n_episodes deterministic episodes and return the list of episode returns.
 
-    A separate environment is created for evaluation so the training env's
-    state is never perturbed.
+    Works for both PPOAgent (state) and VisionPPOAgent (pixels): both expose
+    agent.policy.get_action_and_logp(obs_t, deterministic=True).
+
+    A separate environment is created so the training env's state is never
+    perturbed.  obs_t is unsqueezed to (1, *obs.shape) which handles both
+    flat state vectors and CHW pixel tensors correctly.
     """
     from visual_rl_locomotion.envs.make_env import make_env
 
@@ -93,12 +96,15 @@ def evaluate(agent, env_id: str, seed: int, obs_mode: str, img_size: int,
                         img_size=img_size)
     returns = []
 
+    agent.policy.eval()
+
     for ep in range(n_episodes):
         obs, _ = eval_env.reset(seed=seed + 1000 + ep)
         done = False
         ep_return = 0.0
 
         while not done:
+            # Works for state (1, obs_dim) and pixels (1, 3, H, W).
             obs_t = torch.as_tensor(obs, dtype=torch.float32,
                                     device=device).unsqueeze(0)
             with torch.no_grad():
@@ -124,17 +130,10 @@ def evaluate(agent, env_id: str, seed: int, obs_mode: str, img_size: int,
 def main() -> None:
     args = parse_args()
 
-    # Phase 2 guard: pixel training is not yet implemented.
-    if args.obs_mode == "pixels":
-        print(
-            "[ERROR] --obs_mode pixels is not supported in Phase 2 (state-only).\n"
-            "        Pixel PPO training will be added in Phase 3."
-        )
-        sys.exit(1)
-
     # --- Imports (inside main so import errors are surfaced cleanly) ---
     from visual_rl_locomotion.algo.ppo import PPOAgent, compute_gae
     from visual_rl_locomotion.envs.make_env import make_env
+    from visual_rl_locomotion.models.vision_policy import VisionPPOAgent
     from visual_rl_locomotion.utils.config import args_to_dict, save_config
     from visual_rl_locomotion.utils.logger import CSVLogger
     from visual_rl_locomotion.utils.seed import set_seed
@@ -159,12 +158,13 @@ def main() -> None:
     env = make_env(args.env_id, seed=args.seed, obs_mode=args.obs_mode,
                    img_size=args.img_size)
 
-    obs_dim    = env.observation_space.shape[0]
+    obs_shape  = env.observation_space.shape   # (obs_dim,) or (3, H, W)
     action_dim = env.action_space.shape[0]
 
     print("=" * 60)
     print(f"  env_id          : {args.env_id}")
-    print(f"  obs_dim         : {obs_dim}")
+    print(f"  obs_mode        : {args.obs_mode}")
+    print(f"  obs_shape       : {obs_shape}")
     print(f"  action_dim      : {action_dim}")
     print(f"  total_timesteps : {args.total_timesteps}")
     print(f"  n_steps         : {args.n_steps}")
@@ -172,13 +172,23 @@ def main() -> None:
     print(f"  save_dir        : {args.save_dir}")
     print("=" * 60)
 
-    # --- Agent ---
-    agent = PPOAgent(
-        obs_dim=obs_dim,
-        action_dim=action_dim,
-        lr=args.lr,
-        device=device,
-    )
+    # --- Agent: branch on obs_mode ---
+    if args.obs_mode == "state":
+        agent = PPOAgent(
+            obs_dim=obs_shape[0],
+            action_dim=action_dim,
+            lr=args.lr,
+            device=device,
+        )
+    else:
+        # pixels: obs_shape is (3, H, W)
+        agent = VisionPPOAgent(
+            obs_shape=obs_shape,
+            action_dim=action_dim,
+            lr=args.lr,
+            device=device,
+        )
+        print(f"  [pixels] CNN encoder + VisionPolicy instantiated.")
 
     # --- Training loop ---
     global_step     = 0

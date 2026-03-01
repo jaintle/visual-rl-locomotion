@@ -1,0 +1,12 @@
+[project]
+name = "visual-rl-locomotion"
+version = "0.1.0"
+description = "Vision-based policy learning for MuJoCo locomotion (pixels -> actions)."
+requires-python = ">=3.10"
+dependencies = []
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

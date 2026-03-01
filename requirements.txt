@@ -1,0 +1,11 @@
+# core
+numpy
+torch
+gymnasium[mujoco]
+
+# logging / plots
+pandas
+matplotlib
+
+# dev
+pytest

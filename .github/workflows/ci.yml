@@ -38,8 +38,7 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends \
-            libgl1-mesa-glx \
-            libgles2-mesa-dev \
+            libgl1 \
             libosmesa6-dev \
             patchelf \
             ffmpeg

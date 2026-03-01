@@ -1,6 +1,6 @@
 # visual-rl-locomotion: State vs. Pixel PPO on Hopper-v4
 
-![CI](https://github.com/jaintle/visual-rl-locomotion/actions/workflows/ci.yml/badge.svg)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18825147.svg)](https://doi.org/10.5281/zenodo.18825147) ![CI](https://github.com/jaintle/visual-rl-locomotion/actions/workflows/ci.yml/badge.svg)
 
 An empirical study comparing state-based and pixel-based Proximal Policy Optimisation (PPO) for continuous locomotion control. Training is conducted under identical algorithmic conditions — same PPO implementation, same hyperparameters, same random seeds — so that any observed performance gap is attributable to the observation modality rather than implementation differences. All results are reported as mean ± std across three fixed seeds with deterministic evaluation.
 
@@ -160,7 +160,7 @@ Parameter counts computed programmatically from the model definitions (`MLPPolic
 
 ```bash
 # Clone and enter the repo
-git clone <repo-url>
+git clone https://github.com/jaintle/visual-rl-locomotion.git
 cd visual-rl-locomotion
 
 # Create virtual environment and install
@@ -314,7 +314,7 @@ If you use this code or reproduce these results, please cite:
   title     = {visual-rl-locomotion: State vs. Pixel PPO on Hopper-v4},
   year      = {2026},
   publisher = {Zenodo},
-  doi       = {TBD}
+  doi       = {10.5281/zenodo.18825147}
 }
 ```
 

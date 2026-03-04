@@ -46,6 +46,9 @@ def parse_args() -> argparse.Namespace:
                         help="Observation mode: 'state' (MLP policy) or 'pixels' (CNN policy).")
     parser.add_argument("--img_size",         type=int,   default=64,
                         help="Pixel frame size (ignored in state mode).")
+    parser.add_argument("--frame_stack",      type=int,   default=1,
+                        help="Frames to stack along channel axis (pixels only). "
+                             "1 = no stacking (default). Use 4 for Phase 6.")
 
     # Training
     parser.add_argument("--total_timesteps",  type=int,   default=200_000)
@@ -79,7 +82,8 @@ def parse_args() -> argparse.Namespace:
 # ---------------------------------------------------------------------------
 
 def evaluate(agent, env_id: str, seed: int, obs_mode: str, img_size: int,
-             n_episodes: int, device: torch.device) -> list:
+             n_episodes: int, device: torch.device,
+             frame_stack: int = 1) -> list:
     """
     Run n_episodes deterministic episodes and return the list of episode returns.
 
@@ -93,7 +97,7 @@ def evaluate(agent, env_id: str, seed: int, obs_mode: str, img_size: int,
     from visual_rl_locomotion.envs.make_env import make_env
 
     eval_env = make_env(env_id, seed=seed + 1000, obs_mode=obs_mode,
-                        img_size=img_size)
+                        img_size=img_size, frame_stack=frame_stack)
     returns = []
 
     agent.policy.eval()
@@ -156,7 +160,7 @@ def main() -> None:
 
     # --- Environment ---
     env = make_env(args.env_id, seed=args.seed, obs_mode=args.obs_mode,
-                   img_size=args.img_size)
+                   img_size=args.img_size, frame_stack=args.frame_stack)
 
     obs_shape  = env.observation_space.shape   # (obs_dim,) or (3, H, W)
     action_dim = env.action_space.shape[0]
@@ -164,6 +168,8 @@ def main() -> None:
     print("=" * 60)
     print(f"  env_id          : {args.env_id}")
     print(f"  obs_mode        : {args.obs_mode}")
+    if args.obs_mode == "pixels":
+        print(f"  frame_stack     : {args.frame_stack}")
     print(f"  obs_shape       : {obs_shape}")
     print(f"  action_dim      : {action_dim}")
     print(f"  total_timesteps : {args.total_timesteps}")
@@ -270,6 +276,7 @@ def main() -> None:
                 img_size=args.img_size,
                 n_episodes=args.n_eval_episodes,
                 device=device,
+                frame_stack=args.frame_stack,
             )
             eval_mean = float(np.mean(eval_returns))
             eval_std  = float(np.std(eval_returns))

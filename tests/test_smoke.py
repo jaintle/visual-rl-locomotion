@@ -181,6 +181,118 @@ class TestVisionModels:
 
 
 # ---------------------------------------------------------------------------
+# Frame stack tests
+# ---------------------------------------------------------------------------
+
+class TestFrameStack:
+    """FrameStackWrapper stacks frames correctly and preserves observation space."""
+
+    def test_stacked_obs_shape_4(self):
+        """frame_stack=4 gives (12, H, W) for RGB input."""
+        from visual_rl_locomotion.envs.make_env import make_env
+        env = make_env("Hopper-v4", seed=0, obs_mode="pixels",
+                       img_size=64, frame_stack=4)
+        obs, _ = env.reset(seed=0)
+        assert obs.shape == (12, 64, 64), \
+            f"Expected (12, 64, 64) for frame_stack=4, got {obs.shape}"
+        assert obs.dtype == np.float32
+        env.close()
+
+    def test_stacked_obs_shape_2(self):
+        """frame_stack=2 gives (6, H, W) for RGB input."""
+        from visual_rl_locomotion.envs.make_env import make_env
+        env = make_env("Hopper-v4", seed=0, obs_mode="pixels",
+                       img_size=64, frame_stack=2)
+        obs, _ = env.reset(seed=0)
+        assert obs.shape == (6, 64, 64), \
+            f"Expected (6, 64, 64) for frame_stack=2, got {obs.shape}"
+        env.close()
+
+    def test_no_stack_shape_unchanged(self):
+        """frame_stack=1 (default) does not change obs shape."""
+        from visual_rl_locomotion.envs.make_env import make_env
+        env = make_env("Hopper-v4", seed=0, obs_mode="pixels",
+                       img_size=64, frame_stack=1)
+        obs, _ = env.reset(seed=0)
+        assert obs.shape == (3, 64, 64), \
+            f"frame_stack=1 should give (3,64,64), got {obs.shape}"
+        env.close()
+
+    def test_observation_space_matches_obs(self):
+        """Declared observation_space.shape must match actual observation shape."""
+        from visual_rl_locomotion.envs.make_env import make_env
+        env = make_env("Hopper-v4", seed=0, obs_mode="pixels",
+                       img_size=64, frame_stack=4)
+        obs, _ = env.reset(seed=0)
+        assert obs.shape == env.observation_space.shape, (
+            f"obs.shape {obs.shape} != observation_space.shape "
+            f"{env.observation_space.shape}"
+        )
+        env.close()
+
+    def test_reset_fills_buffer_with_initial_frame(self):
+        """On reset, all frame slots are filled with the initial frame (no zero-padding)."""
+        from visual_rl_locomotion.envs.make_env import make_env
+        env = make_env("Hopper-v4", seed=0, obs_mode="pixels",
+                       img_size=64, frame_stack=4)
+        obs, _ = env.reset(seed=0)
+        # obs is (12, 64, 64): channels [0:3] = oldest frame, ..., [9:12] = newest
+        # All four slots must be identical (same initial frame duplicated).
+        frame0 = obs[0:3]
+        frame1 = obs[3:6]
+        frame2 = obs[6:9]
+        frame3 = obs[9:12]
+        np.testing.assert_array_equal(frame0, frame1,
+            err_msg="Frame slots 0 and 1 differ on reset.")
+        np.testing.assert_array_equal(frame1, frame2,
+            err_msg="Frame slots 1 and 2 differ on reset.")
+        np.testing.assert_array_equal(frame2, frame3,
+            err_msg="Frame slots 2 and 3 differ on reset.")
+        env.close()
+
+    def test_step_shape_consistent(self):
+        """Obs shape remains constant across steps."""
+        from visual_rl_locomotion.envs.make_env import make_env
+        env = make_env("Hopper-v4", seed=0, obs_mode="pixels",
+                       img_size=64, frame_stack=4)
+        env.reset(seed=0)
+        for _ in range(5):
+            obs, _, terminated, truncated, _ = env.step(env.action_space.sample())
+            assert obs.shape == (12, 64, 64), \
+                f"Shape changed mid-episode: {obs.shape}"
+            if terminated or truncated:
+                env.reset()
+        env.close()
+
+    def test_value_range_after_stack(self):
+        """Stacked obs values stay in [0, 1]."""
+        from visual_rl_locomotion.envs.make_env import make_env
+        env = make_env("Hopper-v4", seed=0, obs_mode="pixels",
+                       img_size=64, frame_stack=4)
+        obs, _ = env.reset(seed=0)
+        assert obs.min() >= 0.0 and obs.max() <= 1.0, \
+            f"Stacked obs out of [0,1]: min={obs.min():.4f}, max={obs.max():.4f}"
+        env.close()
+
+    def test_invalid_frame_stack_state_mode(self):
+        """frame_stack > 1 with state mode must raise ValueError."""
+        from visual_rl_locomotion.envs.make_env import make_env
+        with pytest.raises(ValueError, match="pixel mode"):
+            make_env("Hopper-v4", seed=0, obs_mode="state", frame_stack=4)
+
+    def test_cnn_encoder_accepts_stacked_input(self):
+        """CNNEncoder handles (12, H, W) input without any modification."""
+        from visual_rl_locomotion.models.cnn_encoder import CNNEncoder
+        import torch
+        obs_shape = (12, 64, 64)  # 4 stacked RGB frames
+        enc = CNNEncoder(obs_shape=obs_shape, latent_dim=256)
+        x   = torch.zeros(2, *obs_shape)
+        out = enc(x)
+        assert out.shape == (2, 256), \
+            f"Expected (2, 256), got {out.shape}"
+
+
+# ---------------------------------------------------------------------------
 # PPO agent smoke test  (1 rollout, 1 update — no gym interaction)
 # ---------------------------------------------------------------------------
 

@@ -34,6 +34,8 @@ def parse_args() -> argparse.Namespace:
         choices=["state", "pixels"],
     )
     parser.add_argument("--img_size", type=int, default=64)
+    parser.add_argument("--frame_stack", type=int, default=1,
+                        help="Frames to stack (pixels only). 1 = no stacking.")
     return parser.parse_args()
 
 
@@ -46,7 +48,8 @@ def main() -> None:
     print(f"  seed     : {args.seed}")
     print(f"  obs_mode : {args.obs_mode}")
     if args.obs_mode == "pixels":
-        print(f"  img_size : {args.img_size}")
+        print(f"  img_size     : {args.img_size}")
+        print(f"  frame_stack  : {args.frame_stack}")
     print("=" * 60)
 
     # ------------------------------------------------------------------ #
@@ -68,6 +71,7 @@ def main() -> None:
         seed=args.seed,
         obs_mode=args.obs_mode,
         img_size=args.img_size,
+        frame_stack=args.frame_stack,
     )
     print(f"    observation_space : {env.observation_space}")
     print(f"    action_space      : {env.action_space}")
@@ -88,7 +92,8 @@ def main() -> None:
         print(f"    [OK] State observation shape: {obs.shape}")
 
     elif args.obs_mode == "pixels":
-        expected_shape = (3, args.img_size, args.img_size)
+        n_channels = 3 * args.frame_stack
+        expected_shape = (n_channels, args.img_size, args.img_size)
         assert obs.shape == expected_shape, (
             f"Pixel obs shape mismatch: expected {expected_shape}, got {obs.shape}."
         )
@@ -122,7 +127,7 @@ def main() -> None:
 
         # Per-step assertions.
         if args.obs_mode == "pixels":
-            assert obs.shape == (3, args.img_size, args.img_size), (
+            assert obs.shape == expected_shape, (
                 f"Pixel shape changed mid-episode at step {step + 1}: {obs.shape}."
             )
             assert obs.dtype == np.float32
@@ -152,8 +157,12 @@ def _save_pixel_frame(obs_chw: np.ndarray, img_size: int) -> None:
     os.makedirs(assets_dir, exist_ok=True)
     save_path = os.path.join(assets_dir, "smoke_frame.png")
 
+    # If frame-stacked (C > 3), extract the most recent frame (last 3 channels).
+    # PIL only handles 1-, 3-, or 4-channel images.
+    frame_chw = obs_chw[-3:] if obs_chw.shape[0] > 3 else obs_chw
+
     # CHW float32 [0,1] -> HWC uint8 [0,255]
-    frame_hwc = np.transpose(obs_chw, (1, 2, 0))
+    frame_hwc = np.transpose(frame_chw, (1, 2, 0))
     frame_uint8 = (frame_hwc * 255).clip(0, 255).astype(np.uint8)
 
     img = Image.fromarray(frame_uint8)

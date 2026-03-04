@@ -153,12 +153,20 @@ def build_summary_table(
     """
     rows: List[str] = []
 
-    for mode in ["state", "pixels"]:
+    _MODE_LABELS = {
+        "state":       "state",
+        "pixels":      "pixels (no stack)",
+        "pixels_fs4":  "pixels (stack=4)",
+    }
+
+    for mode in ["state", "pixels", "pixels_fs4"]:
         frames = load_mode(runs_dir, mode, metric)
         steps, mean, std, n_seeds = aggregate(frames, metric)
 
+        label = _MODE_LABELS.get(mode, mode)
+
         if len(steps) == 0:
-            rows.append(f"| {mode:<12} | N/A — no data found | — | — |")
+            rows.append(f"| {label:<20} | N/A — no data found | — | — |")
             continue
 
         # Use the last eval step as the summary point.
@@ -167,7 +175,7 @@ def build_summary_table(
         final_step = int(steps[-1])
 
         rows.append(
-            f"| {mode:<12} | {final_mean:>8.1f} ± {final_std:<6.1f} "
+            f"| {label:<20} | {final_mean:>8.1f} ± {final_std:<6.1f} "
             f"| {n_seeds} | {final_step:,} |"
         )
 
@@ -178,8 +186,8 @@ def build_summary_table(
         "",
         f"Metric: `{metric}`  |  Source: `{runs_dir}`",
         "",
-        "| Mode         | Final Eval Return (mean ± std) | Seeds | Final Step |",
-        "|:-------------|:-------------------------------|------:|----------:|",
+        "| Mode                 | Final Eval Return (mean ± std) | Seeds | Final Step |",
+        "|:---------------------|:-------------------------------|------:|----------:|",
     ] + rows + [
         "",
         "*Mean and std computed across seeds at the final logged eval step.*",
@@ -192,7 +200,16 @@ def build_summary_table(
 # Plotting
 # ---------------------------------------------------------------------------
 
-_COLOURS = {"state": "#1976D2", "pixels": "#E64A19"}
+_COLOURS = {
+    "state":       "#1976D2",   # blue
+    "pixels":      "#E64A19",   # orange-red
+    "pixels_fs4":  "#2E7D32",   # green
+}
+_LABELS = {
+    "state":       "state",
+    "pixels":      "pixels (no stack)",
+    "pixels_fs4":  "pixels (stack=4)",
+}
 
 
 def plot_overlay(
@@ -208,7 +225,7 @@ def plot_overlay(
     fig, ax = plt.subplots(figsize=(9, 5))
     any_data = False
 
-    for mode in ["state", "pixels"]:
+    for mode in ["state", "pixels", "pixels_fs4"]:
         frames = load_mode(runs_dir, mode, metric)
         steps, mean, std, n_seeds = aggregate(frames, metric)
 
@@ -217,7 +234,7 @@ def plot_overlay(
             continue
 
         colour = _COLOURS.get(mode, "grey")
-        label  = f"{mode} (n={n_seeds})"
+        label  = f"{_LABELS.get(mode, mode)} (n={n_seeds})"
         ax.plot(steps, mean, label=label, color=colour, linewidth=2.0)
         ax.fill_between(steps, mean - std, mean + std,
                         alpha=0.20, color=colour, linewidth=0)
@@ -231,7 +248,7 @@ def plot_overlay(
     ax.set_xlabel("Environment Steps", fontsize=12)
     ax.set_ylabel(metric, fontsize=12)
     ax.set_title(
-        f"Hopper-v4 · {metric}\nState vs. Pixels — {runs_name} (mean ± std)",
+        f"Hopper-v4 · {metric}\nState vs. Pixels vs. Pixels+Stack — {runs_name} (mean ± std)",
         fontsize=12,
     )
     ax.legend(fontsize=11)

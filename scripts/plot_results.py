@@ -156,8 +156,16 @@ def collect_mode_curves(
 
 # Colour palette: accessible, distinct.
 _COLOURS = {
-    "state":  "#1976D2",   # blue
-    "pixels": "#E64A19",   # orange-red
+    "state":       "#1976D2",   # blue
+    "pixels":      "#E64A19",   # orange-red
+    "pixels_fs4":  "#2E7D32",   # green
+}
+
+# Human-readable legend labels.
+_LABELS = {
+    "state":       "state",
+    "pixels":      "pixels (no stack)",
+    "pixels_fs4":  "pixels (stack=4)",
 }
 
 
@@ -177,13 +185,14 @@ def _plot_curves(
     fig, ax = plt.subplots(figsize=(8, 5))
     any_data = False
 
-    for mode in ["state", "pixels"]:
+    for mode in ["state", "pixels", "pixels_fs4"]:
         steps, mean, std = collect_mode_curves(runs_dir, mode, metric)
         if steps is None:
             continue
 
         colour = _COLOURS.get(mode, "grey")
-        ax.plot(steps, mean, label=mode, color=colour, linewidth=2.0)
+        label  = _LABELS.get(mode, mode)
+        ax.plot(steps, mean, label=label, color=colour, linewidth=2.0)
         ax.fill_between(
             steps,
             mean - std,
@@ -230,7 +239,7 @@ def main() -> None:
         metric       = args.metric,
         out_dir      = args.out_dir,
         out_filename = "compare_eval_return.png",
-        title        = "Hopper-v4: Deterministic Eval Return — State vs. Pixels\n(mean ± std across seeds)",
+        title        = "Hopper-v4: Deterministic Eval Return — State vs. Pixels vs. Pixels+Stack\n(mean ± std across seeds)",
         ylabel       = "Eval Return (mean)",
     )
 
@@ -242,7 +251,7 @@ def main() -> None:
         metric       = "episode_return",
         out_dir      = args.out_dir,
         out_filename = "compare_train_return.png",
-        title        = "Hopper-v4: Training Episode Return — State vs. Pixels\n(mean ± std across seeds)",
+        title        = "Hopper-v4: Training Episode Return — State vs. Pixels vs. Pixels+Stack\n(mean ± std across seeds)",
         ylabel       = "Episode Return",
     )
 

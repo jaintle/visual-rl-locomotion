@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # reproduce_hopper_v4_20k.sh
 #
-# Fully reproducible benchmark: PPO state vs. pixels on Hopper-v4
-# for 20 000 environment steps, 3 seeds, 5 deterministic eval episodes.
+# Fully reproducible benchmark: PPO state vs. pixels vs. pixels+stack=4
+# on Hopper-v4 for 20 000 environment steps, 3 seeds, 5 eval episodes.
 #
 # Outputs:
-#   runs/compare/20k_eval5/{state,pixels}/seed_{0,1,2}/
+#   runs/compare/20k_eval5/{state,pixels,pixels_fs4}/seed_{0,1,2}/
 #     config.json      — full hyperparameter record
 #     metrics.csv      — per-update + per-eval rows
 #     checkpoints/     — .pt files at each eval boundary
@@ -13,8 +13,9 @@
 #   reports/results_hopper_v4.md
 #
 # Runtime (CPU, single machine):
-#   State mode : ~5–15 min per seed depending on hardware
-#   Pixel mode : ~15–40 min per seed (CNN forward + backward per batch)
+#   State mode           : ~5–15 min per seed
+#   Pixel mode           : ~15–40 min per seed (CNN forward + backward per batch)
+#   Pixel + stack=4 mode : ~15–40 min per seed (same CNN, 4× input channels)
 #
 # Usage:
 #   bash scripts/reproduce_hopper_v4_20k.sh
@@ -61,6 +62,7 @@ fi
 
 echo "============================================================"
 echo "  visual-rl-locomotion — Hopper-v4 20k Reproduction Run"
+echo "  Conditions: state | pixels | pixels_fs4"
 echo "============================================================"
 echo "  repo    : ${REPO_ROOT}"
 echo "  python  : ${PYTHON}"
@@ -72,10 +74,10 @@ echo "  eval@   : every ${EVAL_EVERY} steps × ${N_EVAL_EPISODES} episodes"
 echo "============================================================"
 
 # ---------------------------------------------------------------------------
-# Step 1 — Run multi-seed comparison
+# Step 1a — state + pixels (no frame stacking)
 # ---------------------------------------------------------------------------
 echo ""
-echo "[1/3] Launching multi-seed comparison via run_compare.py ..."
+echo "[1a/4] Launching state + pixels (no stack) via run_compare.py ..."
 echo ""
 
 "$PYTHON" "${REPO_ROOT}/scripts/run_compare.py" \
@@ -91,8 +93,29 @@ echo ""
     --seeds           "${SEEDS}"             \
     --out_dir         "${REPO_ROOT}/${OUT_DIR}"
 
+# ---------------------------------------------------------------------------
+# Step 1b — pixels with frame_stack=4
+# ---------------------------------------------------------------------------
 echo ""
-echo "[2/3] Generating learning-curve plots ..."
+echo "[1b/4] Launching pixels + frame_stack=4 via run_compare.py ..."
+echo ""
+
+"$PYTHON" "${REPO_ROOT}/scripts/run_compare.py" \
+    --env_id          "${ENV_ID}"            \
+    --total_timesteps "${TOTAL_TIMESTEPS}"   \
+    --eval_every      "${EVAL_EVERY}"        \
+    --n_steps         "${N_STEPS}"           \
+    --epochs          "${EPOCHS}"            \
+    --batch_size      "${BATCH_SIZE}"        \
+    --device          "${DEVICE}"            \
+    --img_size        "${IMG_SIZE}"          \
+    --n_eval_episodes "${N_EVAL_EPISODES}"   \
+    --seeds           "${SEEDS}"             \
+    --frame_stack     4                      \
+    --out_dir         "${REPO_ROOT}/${OUT_DIR}"
+
+echo ""
+echo "[2/4] Generating learning-curve plots ..."
 echo ""
 
 "$PYTHON" "${REPO_ROOT}/scripts/plot_results.py" \
@@ -103,7 +126,7 @@ echo ""
 # Step 3 — Aggregate + write results markdown
 # ---------------------------------------------------------------------------
 echo ""
-echo "[3/3] Aggregating results into reports/results_hopper_v4.md ..."
+echo "[3/4] Aggregating results into reports/results_hopper_v4.md ..."
 echo ""
 
 "$PYTHON" "${REPO_ROOT}/scripts/aggregate_results.py" \
@@ -113,9 +136,9 @@ echo ""
 
 echo ""
 echo "============================================================"
-echo "  Reproduction complete."
+echo "  Reproduction complete.  3 conditions × 3 seeds = 9 runs."
 echo ""
-echo "  Results    : ${OUT_DIR}/"
+echo "  Results    : ${OUT_DIR}/{state,pixels,pixels_fs4}/"
 echo "  Plot       : reports/figures/compare_eval_return.png"
 echo "  Summary    : reports/results_hopper_v4.md"
 echo "============================================================"

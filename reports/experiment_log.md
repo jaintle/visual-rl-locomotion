@@ -192,6 +192,68 @@ None required for this run.
 
 ---
 
+## Entry 004 — 1M-step Benchmark (pending)
+
+**Date:** — pending (run `bash scripts/reproduce_hopper_v4_1m.sh`)
+**Environment:** Hopper-v4 (Gymnasium + MuJoCo)
+**Obs modes:** state, pixels (no stack), pixels (stack=4)
+**Img size:** 64 × 64 (pixels modes only)
+**Seed(s):** 0, 1, 2
+**Timesteps:** 1 000 000 (`reproduce_hopper_v4_1m.sh`)
+**Eval every:** 10 000 steps · 5 deterministic eval episodes
+**n_steps:** 2048 | **batch_size:** 64 | **epochs:** 10
+**Device:** — (cpu or cuda depending on run machine)
+
+### Purpose
+
+First full 1M-step run across all three conditions.
+At 1M steps Hopper-v4 approaches meaningful locomotion performance for state-based PPO.
+Key questions this run will answer:
+
+1. Does the pixel–state gap narrow or persist at longer horizons?
+2. Does frame stacking (stack=4) sustain or lose its advantage over no-stack pixels at scale?
+3. Does pixel-mode variance reduce with more training, or remain high?
+4. What is the asymptotic return of each condition under these fixed hyperparameters?
+
+### Observations
+
+*To be filled after run completes.*
+
+- Training stability:
+- Sample efficiency differences:
+- Representation bottlenecks:
+- Variance across seeds:
+
+### Quantitative
+
+*To be filled after run completes.*
+
+| Mode              | Final Eval Return (mean ± std) | Seeds | Step      |
+|:------------------|:-------------------------------|------:|----------:|
+| state             | — pending —                    |     3 | 1 000 000 |
+| pixels (no stack) | — pending —                    |     3 | 1 000 000 |
+| pixels (stack=4)  | — pending —                    |     3 | 1 000 000 |
+
+- State vs pixels (no stack): — pending —
+- State vs pixels (stack=4): — pending —
+- Stack=4 vs no-stack:        — pending —
+
+### Bugs encountered
+
+*To be filled after run completes.*
+
+### Fixes applied
+
+*To be filled after run completes.*
+
+### Limitations
+
+- Identical PPO hyperparameters across all conditions; no per-condition tuning.
+- CPU runs will be very slow (~1–3 days). GPU strongly recommended.
+- Three seeds remain insufficient for tight variance estimates; a follow-up with 5–10 seeds would strengthen any conclusions.
+
+---
+
 ## Template (copy for new entries)
 
 **Date:**

@@ -72,7 +72,7 @@ def parse_args() -> argparse.Namespace:
                         help="Number of deterministic episodes per evaluation.")
     parser.add_argument("--save_dir",         type=str,   default="runs/run1")
     parser.add_argument("--device",           type=str,   default="cpu",
-                        choices=["cpu", "cuda"])
+                        choices=["cpu", "cuda", "mps"])
 
     return parser.parse_args()
 
@@ -141,6 +141,24 @@ def main() -> None:
     from visual_rl_locomotion.utils.config import args_to_dict, save_config
     from visual_rl_locomotion.utils.logger import CSVLogger
     from visual_rl_locomotion.utils.seed import set_seed
+
+    # --- Device validation ---
+    if args.device == "cuda" and not torch.cuda.is_available():
+        print(
+            "[error] --device cuda requested but CUDA is not available.\n"
+            "        On Apple Silicon use --device mps for GPU acceleration,\n"
+            "        or --device cpu to run on the CPU."
+        )
+        raise SystemExit(1)
+    if args.device == "mps" and not (
+        hasattr(torch.backends, "mps") and torch.backends.mps.is_available()
+    ):
+        print(
+            "[error] --device mps requested but MPS is not available.\n"
+            "        Requires macOS 12.3+ with an Apple Silicon or AMD GPU.\n"
+            "        Fall back with --device cpu."
+        )
+        raise SystemExit(1)
 
     # --- Setup ---
     set_seed(args.seed)

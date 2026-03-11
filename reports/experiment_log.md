@@ -192,6 +192,104 @@ None required for this run.
 
 ---
 
+## Entry 004 — 1M-step Benchmark (3 conditions · 3 seeds · MPS)
+
+**Date:** 2026-03-06
+**Environment:** Hopper-v4 (Gymnasium + MuJoCo)
+**Obs modes:** state, pixels (no stack), pixels (stack=4)
+**Img size:** 64 × 64 (pixels modes only)
+**Seed(s):** 0, 1, 2
+**Timesteps:** 1 000 000 (`reproduce_hopper_v4_1m.sh`)
+**Eval every:** 10 000 steps · 5 deterministic eval episodes
+**n_steps:** 2048 | **batch_size:** 64 | **epochs:** 10
+**Device:** mps (Apple Silicon)
+
+### Purpose
+
+First full 1M-step run across all three conditions using the `reproduce_hopper_v4_1m.sh`
+script. Primary questions addressed:
+
+1. Does the pixel–state gap narrow or widen at longer horizons?
+2. Does frame stacking (stack=4) sustain its 20k advantage over no-stack pixels?
+3. Does pixel-mode variance reduce with more training?
+4. Does state-based PPO approach meaningful locomotion performance on Hopper-v4?
+
+### Observations
+
+- **Training stability (state):** Policy improves slowly until ~200k steps, then
+  accelerates strongly, reaching peaks of ~3000–3500 return in favourable seeds.
+  However, Hopper-v4 is unstable — once the hopper falls, episode returns collapse,
+  causing large oscillations throughout the second half of training. The final eval
+  return of 1915 ± 992 reflects seeds landing at very different positions on this
+  oscillation (some may be near peaks, others in troughs at step 1M).
+
+- **Training stability (pixels, no stack):** Flat and stable throughout. The curve
+  rises very slowly, reaching ~121 by 1M steps. No dramatic instability or collapse
+  visible. Std of 40.2 is wide relative to mean (33%) but curves are well-separated
+  in absolute scale from state.
+
+- **Training stability (pixels, stack=4):** Similarly flat. Final return of 97.7
+  is below no-stack despite an early advantage at 20k steps. No catastrophic
+  collapse, but the added input complexity (C=12) does not translate to better
+  performance at this scale.
+
+- **Sample efficiency differences:** State advantage compounds over time. The eval
+  curve for state is essentially flat until ~200k steps (consistent with 20k
+  observations), then rises sharply. Pixel conditions show only slow, steady
+  improvement throughout — no phase transition.
+
+- **Representation bottleneck:** Both pixel conditions finish well below 125.
+  On the scale of the state learning curve, both pixel curves appear as near-flat
+  lines hugging the bottom of the plot, illustrating how severe the bottleneck is
+  at 1M steps with a randomly-initialised CNN trained by PPO alone.
+
+- **Variance across seeds:** State: very high (σ=992, ≈52% of mean) due to
+  Hopper instability. No-stack: σ=40.2 (≈33%). Stack=4: σ=36.0 (≈37%).
+  Pixel variance did not substantially reduce relative to state as training lengthened.
+
+- **Frame stacking reversal confirmed:** At 20k, stack=4 > no-stack (65.6 vs 50.1).
+  At 1M, no-stack > stack=4 (121.8 vs 97.7). Stacking appears to hinder rather than
+  help optimisation at longer horizons under vanilla PPO with fixed hyperparameters.
+
+### Quantitative
+
+| Mode              | Final Eval Return (mean ± std) | Seeds | Step      |
+|:------------------|:-------------------------------|------:|----------:|
+| state             | 1915.1 ± 992.0                 |     3 | 1 001 472 |
+| pixels (no stack) |  121.8 ± 40.2                  |     3 | 1 001 472 |
+| pixels (stack=4)  |   97.7 ± 36.0                  |     3 | 1 001 472 |
+
+- State vs pixels (no stack): **15.7×** gap (was 4.4× at 20k).
+- State vs pixels (stack=4): **19.6×** gap (was 3.3× at 20k).
+- Stack=4 vs no-stack: **−20%** (stack=4 is worse at 1M; was +31% at 20k).
+- State absolute improvement from 20k: 219 → 1915 (+775%).
+- No-stack absolute improvement from 20k: 50.1 → 121.8 (+143%).
+- Stack=4 absolute improvement from 20k: 65.6 → 97.7 (+49%).
+
+### Bugs encountered
+
+`DEVICE=cuda` failed on macOS (CPU-only PyTorch build, CUDA not available).
+
+### Fixes applied
+
+Added `mps` to `--device` choices in `train_ppo.py` and `run_compare.py`.
+Added startup device-availability validation with actionable error messages.
+Run completed successfully with `DEVICE=mps`.
+
+### Limitations
+
+- Identical PPO hyperparameters across all conditions; no per-condition tuning.
+  Pixel modes would likely benefit from a lower learning rate and/or larger
+  rollout buffer at this scale.
+- Three seeds. State std of ~992 is very wide; seed-level values would reveal
+  whether the high mean reflects all three seeds or one outlier.
+- Hopper-v4 instability means 1M-step state performance is sensitive to the
+  final-step snapshot. A return measured at peak vs. trough differs by >2×.
+- MPS (Apple Silicon) device used; minor numerical differences from CUDA
+  are possible, though not expected to materially affect results.
+
+---
+
 ## Template (copy for new entries)
 
 **Date:**

@@ -55,7 +55,7 @@ def parse_args() -> argparse.Namespace:
 
     # Hardware
     parser.add_argument("--device",           type=str,   default="cpu",
-                        choices=["cpu", "cuda"])
+                        choices=["cpu", "cuda", "mps"])
 
     # Experiment configuration
     parser.add_argument("--seeds",            type=str,   default="0,1,2",

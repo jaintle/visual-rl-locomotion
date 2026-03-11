@@ -308,6 +308,7 @@ scripts/
     plot_results.py          — Learning curves: mean ± std, matplotlib
     aggregate_results.py     — Aggregation → markdown table + overlay plot
     reproduce_hopper_v4_20k.sh — Full 20k benchmark end-to-end
+    reproduce_hopper_v4_1m.sh  — Full 1M benchmark end-to-end
 
 tests/
     test_smoke.py            — Env creation, model shapes, rollout correctness
